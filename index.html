@@ -76,44 +76,38 @@
 
     <div id="message"></div>
 
+    <!-- SHARE RESULT -->
 
+    <div
+      id="shareSection"
+      class="share-section"
+      style="display:none;"
+    >
 
-   <div class="clues" id="clues"></div>
+      <div class="share-title">
+        🎬 Today's Result
+      </div>
 
-<div id="message"></div>
+      <pre
+        id="sharePreview"
+        class="share-preview"
+      ></pre>
 
-<!-- SHARE RESULT -->
+      <button
+        id="shareBtn"
+        class="share-btn"
+      >
+        📤 SHARE RESULT
+      </button>
 
-<div
-  id="shareSection"
-  class="share-section"
-  style="display:none;"
->
-
-  <div class="share-title">
-    🎬 Today's Result
-  </div>
-
-  <pre
-    id="sharePreview"
-    class="share-preview"
-  ></pre>
-
-  <button
-    id="shareBtn"
-    class="share-btn"
-  >
-    📤 SHARE RESULT
-  </button>
-
-</div>
-
+    </div>
 
   </section>
 
   <section class="how">
 
     <h2>Ela aadali?</h2>
+
     <p>
       Dialogue vinu, cinema peru guess cheyyi.
       Enni takkuva attempts lo kanipedithe antha mass !
@@ -123,6 +117,16 @@
 
 </main>
 
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () {
+    (window.vaq = window.vaq || []).push(arguments);
+  };
+</script>
+
+<script defer src="/_vercel/insights/script.js"></script>
+
+<!-- Game -->
 <script src="app.js"></script>
 
 </body>
