@@ -1,0 +1,41 @@
+[
+  {
+    "date": "2026-09-05",
+    "easy": {
+      "movie": "Khaleja",
+      "answers": [
+        "khaleja"
+      ],
+      "audio": "audio/2026-09-05-easy.mp3",
+      "clues": {
+        "actor": "Mahesh Babu",
+        "year": 2010,
+        "director": "Trivikram Srinivas"
+      }
+    },
+    "hard": {
+      "movie": "Jalsa",
+      "answers": [
+        "jalsa"
+      ],
+      "audio": "audio/2026-09-05-hard.mp3",
+      "clues": {
+        "actor": "Pawan Kalyan",
+        "year": 2008,
+        "director": "Trivikram Srinivas"
+      }
+    },
+    "ultra_hard": {
+      "movie": "Julayi",
+      "answers": [
+        "julayi"
+      ],
+      "audio": "audio/2026-09-05-ultra-hard.mp3",
+      "clues": {
+        "actor": "Allu Arjun",
+        "year": 2012,
+        "director": "Trivikram Srinivas"
+      }
+    }
+  }
+]
