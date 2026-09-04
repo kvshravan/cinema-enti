@@ -222,7 +222,7 @@ ${solved}/3 🎬
 
 Beat me ra 😏
 
-cinema-enti.com`;
+https://cinema-enti.vercel.app/`;
 
 }
 
