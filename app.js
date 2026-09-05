@@ -2,8 +2,9 @@ const COOKIE_NAME = "cinema_enti_state";
 
 let games = [];
 
-let currentDate =
-  new Date().toLocaleDateString("en-CA");
+let currentDate = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Kolkata"
+}).format(new Date());
 
 let mode = "easy";
 
@@ -357,12 +358,13 @@ DAILY GAME NUMBER
 */
 
 function getGameNumber() {
-
   const start =
-    new Date("2026-09-05");
+    new Date("2026-09-05T00:00:00+05:30");
 
   const today =
-    new Date(currentDate);
+    new Date(
+      `${currentDate}T00:00:00+05:30`
+    );
 
   const diff =
     Math.floor(
@@ -374,7 +376,6 @@ function getGameNumber() {
     Math.max(1, diff + 1)
   ).padStart(3, "0");
 }
-
 
 /*
 ------------------------------------
