@@ -1,7 +1,6 @@
 [
   {
     "date": "2026-09-05",
-
     "easy": {
       "movie": "Khaleja",
       "audio": "audio/2026-09-05-easy.mp3",
@@ -11,7 +10,6 @@
         "director": "Trivikram Srinivas"
       }
     },
-
     "hard": {
       "movie": "Jalsa",
       "audio": "audio/2026-09-05-hard.mp3",
@@ -21,7 +19,6 @@
         "director": "Trivikram Srinivas"
       }
     },
-
     "ultra_hard": {
       "movie": "Julayi",
       "audio": "audio/2026-09-05-ultra-hard.mp3",
@@ -29,6 +26,36 @@
         "actor": "Allu Arjun",
         "year": 2012,
         "director": "Trivikram Srinivas"
+      }
+    }
+  },
+  {
+    "date": "2026-09-06",
+    "easy": {
+      "movie": "Vikramarkudu",
+      "audio": "audio/2026-09-06-easy.mp3",
+      "clues": {
+        "actor": "Ravi Teja",
+        "year": 2006,
+        "director": "S. S. Rajamouli"
+      }
+    },
+    "hard": {
+      "movie": "Pilla Zamindar",
+      "audio": "audio/2026-09-06-hard.mp3",
+      "clues": {
+        "actor": "Nani",
+        "year": 2011,
+        "director": "G. Ashok"
+      }
+    },
+    "ultra_hard": {
+      "movie": "Yamadonga",
+      "audio": "audio/2026-09-06-ultra-hard.mp3",
+      "clues": {
+        "actor": "N. T. Rama Rao Jr.",
+        "year": 2007,
+        "director": "S. S. Rajamouli"
       }
     }
   }
