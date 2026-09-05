@@ -12,8 +12,13 @@ let attempts = 0;
 let current = null;
 
 
-const descriptions = {
+/*
+------------------------------------
+DESCRIPTIONS
+------------------------------------
+*/
 
+const descriptions = {
   easy:
     "Ee dialogue ekkuva mandi immediate ga kanipedataru 😎",
 
@@ -22,9 +27,14 @@ const descriptions = {
 
   ultra_hard:
     "Idi real cinema pichollaki maatrame 🔥"
-
 };
 
+
+/*
+------------------------------------
+HELPER
+------------------------------------
+*/
 
 function $(id) {
   return document.getElementById(id);
@@ -38,7 +48,6 @@ COOKIE HELPERS
 */
 
 function getCookie(name) {
-
   const cookies =
     document.cookie.split("; ");
 
@@ -58,7 +67,6 @@ function getCookie(name) {
 
 
 function setCookie(name, value, days = 365) {
-
   const expires =
     new Date(
       Date.now() +
@@ -71,9 +79,7 @@ function setCookie(name, value, days = 365) {
 
 
 function loadState() {
-
   try {
-
     const value =
       getCookie(COOKIE_NAME);
 
@@ -96,13 +102,11 @@ function loadState() {
 
 
 function saveState(state) {
-
   setCookie(
     COOKIE_NAME,
     JSON.stringify(state),
     365
   );
-
 }
 
 
@@ -113,7 +117,6 @@ GUESS NORMALIZATION
 */
 
 function normalize(text) {
-
   return text
     .toLowerCase()
     .normalize("NFKC")
@@ -123,7 +126,227 @@ function normalize(text) {
     )
     .replace(/\s+/g, " ")
     .trim();
+}
 
+
+/*
+------------------------------------
+FUZZY MATCHING
+------------------------------------
+*/
+
+/*
+Calculate the Levenshtein distance between
+two strings.
+
+Example:
+
+jalsa
+dalsa
+
+Distance = 1
+*/
+
+function levenshteinDistance(a, b) {
+
+  const matrix = Array.from(
+    { length: b.length + 1 },
+    () => Array(a.length + 1).fill(0)
+  );
+
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i][0] = i;
+  }
+
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= b.length; i++) {
+
+    for (let j = 1; j <= a.length; j++) {
+
+      if (b[i - 1] === a[j - 1]) {
+
+        matrix[i][j] =
+          matrix[i - 1][j - 1];
+
+      } else {
+
+        matrix[i][j] =
+          Math.min(
+            matrix[i - 1][j] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j - 1] + 1
+          );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+
+/*
+Decide how many spelling mistakes are
+allowed for a single word.
+
+Examples:
+
+jalsa
+dalsa
+
+=> 1 typo allowed
+
+raghava
+ragahava
+
+=> 1 typo allowed
+
+Very long words can tolerate 2 typos.
+*/
+
+function wordDistanceAllowed(word) {
+
+  const length = word.length;
+
+  // Don't fuzzy-match very short words.
+  if (length <= 3) {
+    return 0;
+  }
+
+  // Normal movie-title words.
+  if (length <= 7) {
+    return 1;
+  }
+
+  // Longer words.
+  return 2;
+}
+
+
+/*
+Compare two individual words.
+*/
+
+function wordsMatch(guessWord, answerWord) {
+
+  if (guessWord === answerWord) {
+    return true;
+  }
+
+  const distance =
+    levenshteinDistance(
+      guessWord,
+      answerWord
+    );
+
+  const allowed =
+    wordDistanceAllowed(answerWord);
+
+  return distance <= allowed;
+}
+
+
+/*
+Compare the complete movie title.
+
+For multi-word titles we compare each word
+individually.
+
+Example:
+
+Aravinda Sametha Veera Raghava
+
+Aravinda Sametha Veera Ragahava
+
+=> TRUE
+
+But:
+
+Aravinda Sametha
+
+=> FALSE
+
+And:
+
+Aravinda Veera Sametha Raghava
+
+=> FALSE
+*/
+
+function isCorrectAnswer(guess, answers) {
+
+  const normalizedGuess =
+    normalize(guess);
+
+  if (!normalizedGuess) {
+    return false;
+  }
+
+  const guessWords =
+    normalizedGuess.split(" ");
+
+  for (const answer of answers) {
+
+    const normalizedAnswer =
+      normalize(answer);
+
+    /*
+    Exact match.
+    */
+
+    if (
+      normalizedGuess ===
+      normalizedAnswer
+    ) {
+      return true;
+    }
+
+    const answerWords =
+      normalizedAnswer.split(" ");
+
+    /*
+    Number of words must match.
+
+    This prevents incomplete titles from
+    being accepted.
+    */
+
+    if (
+      guessWords.length !==
+      answerWords.length
+    ) {
+      continue;
+    }
+
+    let allWordsMatch = true;
+
+    for (
+      let i = 0;
+      i < answerWords.length;
+      i++
+    ) {
+
+      if (
+        !wordsMatch(
+          guessWords[i],
+          answerWords[i]
+        )
+      ) {
+
+        allWordsMatch = false;
+
+        break;
+      }
+    }
+
+    if (allWordsMatch) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 
@@ -150,7 +373,6 @@ function getGameNumber() {
   return String(
     Math.max(1, diff + 1)
   ).padStart(3, "0");
-
 }
 
 
@@ -206,11 +428,9 @@ function getShareText() {
         solved++;
 
         return `${gameMode.emoji} ${gameMode.name} — ${result.attempts}️⃣`;
-
       }
 
       return `${gameMode.emoji} ${gameMode.name} — ❌`;
-
     });
 
 
@@ -223,7 +443,6 @@ ${solved}/3 🎬
 Beat me ra 😏
 
 https://cinema-enti.vercel.app/`;
-
 }
 
 
@@ -271,9 +490,7 @@ function updateShareSection() {
 
     section.style.display =
       "none";
-
   }
-
 }
 
 
@@ -292,13 +509,13 @@ async function init() {
         .then(response => {
 
           if (!response.ok) {
+
             throw new Error(
               "games.json could not be loaded"
             );
           }
 
           return response.json();
-
         });
 
 
@@ -321,9 +538,7 @@ async function init() {
 
     $("message").textContent =
       "Game load avvaledu ra 😭";
-
   }
-
 }
 
 
@@ -432,19 +647,16 @@ function loadGame() {
 
       $("message").textContent =
         `Answer: ${current.movie}`;
-
     }
 
 
     $("guessBtn").disabled = true;
 
     $("guess").disabled = true;
-
   }
 
 
   updateShareSection();
-
 }
 
 
@@ -469,10 +681,8 @@ function renderAttempts() {
         return `
           <span class="dot ${used}"></span>
         `;
-
       }
     ).join("");
-
 }
 
 
@@ -492,7 +702,6 @@ function renderClues() {
     shown.push(
       `👤 Hero: ${current.clues.actor}`
     );
-
   }
 
 
@@ -501,7 +710,6 @@ function renderClues() {
     shown.push(
       `📅 Year: ${current.clues.year}`
     );
-
   }
 
 
@@ -510,7 +718,6 @@ function renderClues() {
     shown.push(
       `🎬 Director: ${current.clues.director}`
     );
-
   }
 
 
@@ -521,7 +728,6 @@ function renderClues() {
           `<div class="clue">${clue}</div>`
       )
       .join("");
-
 }
 
 
@@ -559,10 +765,14 @@ function guess() {
   renderAttempts();
 
 
+  /*
+  FUZZY WORD-AWARE MATCHING
+  */
+
   const correct =
-    current.answers.some(
-      answer =>
-        normalize(answer) === value
+    isCorrectAnswer(
+      value,
+      current.answers
     );
 
 
@@ -595,7 +805,6 @@ function guess() {
       attempts: attempts,
 
       movie: current.movie
-
     };
 
 
@@ -642,7 +851,6 @@ function guess() {
       attempts: attempts,
 
       movie: current.movie
-
     };
 
 
@@ -672,7 +880,6 @@ function guess() {
 
 
   renderClues();
-
 }
 
 
@@ -703,9 +910,7 @@ document
 
 
       loadGame();
-
     };
-
   });
 
 
@@ -736,7 +941,6 @@ $("playBtn").onclick = () => {
           "Audio playback failed",
           error
         );
-
       });
 
   } else {
@@ -745,16 +949,16 @@ $("playBtn").onclick = () => {
 
     $("playBtn").textContent =
       "▶";
-
   }
-
 };
 
 
 $("audio").addEventListener(
   "play",
   () => {
-    $("playBtn").textContent = "⏸";
+
+    $("playBtn").textContent =
+      "⏸";
   }
 );
 
@@ -762,7 +966,9 @@ $("audio").addEventListener(
 $("audio").addEventListener(
   "pause",
   () => {
-    $("playBtn").textContent = "▶";
+
+    $("playBtn").textContent =
+      "▶";
   }
 );
 
@@ -791,7 +997,6 @@ $("guess").addEventListener(
     if (event.key === "Enter") {
       guess();
     }
-
   }
 );
 
@@ -829,7 +1034,6 @@ if (shareBtn) {
 
           text:
             shareText
-
         });
 
       } catch (error) {
@@ -841,11 +1045,9 @@ if (shareBtn) {
         console.log(
           "Share cancelled"
         );
-
       }
 
       return;
-
     }
 
 
@@ -879,11 +1081,8 @@ if (shareBtn) {
         "Copy your result:",
         shareText
       );
-
     }
-
   };
-
 }
 
 
