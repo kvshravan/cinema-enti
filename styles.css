@@ -3,11 +3,8 @@
 }
 
 body {
-
   margin: 0;
-
   background: #0d0d0f;
-
   color: #f5f5f7;
 
   font-family:
@@ -19,104 +16,87 @@ body {
     sans-serif;
 }
 
-
 .app {
-
   width: min(720px, 92%);
-
   margin: 0 auto;
-
   padding: 36px 0 60px;
 }
 
 
-/* HEADER */
+/*
+------------------------------------
+HEADER
+------------------------------------
+*/
 
 header {
-
   text-align: center;
-
   margin-bottom: 34px;
 }
 
-
 .brand {
-
   font-size: 32px;
-
   font-weight: 800;
 }
 
-
 .subtitle {
-
   color: #a2a2aa;
-
   margin-top: 7px;
-
   font-size: 15px;
 }
 
 
-/* MAIN CARD */
+/*
+------------------------------------
+MAIN CARD
+------------------------------------
+*/
 
 .hero {
-
   background: #17171b;
-
   border: 1px solid #29292f;
-
   border-radius: 22px;
-
   padding: 28px;
 }
 
 
-/* DATE */
+/*
+------------------------------------
+DATE
+------------------------------------
+*/
 
 .date {
-
   text-transform: uppercase;
-
   letter-spacing: 2px;
-
   font-size: 12px;
-
   color: #888890;
 }
 
-
 h1 {
-
   margin: 8px 0 20px;
-
   font-size: 32px;
 }
 
 
-/* MODES */
+/*
+------------------------------------
+MODES
+------------------------------------
+*/
 
 .mode-tabs {
-
   display: grid;
-
-  grid-template-columns:
-    1fr 1fr 1fr;
-
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
 }
 
-
 .mode {
-
   border: 1px solid #36363d;
-
   background: #222228;
-
   color: #aaa;
 
   border-radius: 12px;
-
   padding: 12px 8px;
 
   cursor: pointer;
@@ -126,39 +106,31 @@ h1 {
   transition: 0.15s;
 }
 
-
 .mode:hover {
-
   transform: translateY(-1px);
 }
 
-
 .mode.active {
-
   background: #f5f5f7;
-
   color: #111;
 }
 
-
 .mode-desc {
-
   min-height: 22px;
-
   color: #aaa;
-
   font-size: 14px;
 }
 
 
-/* AUDIO PLAYER */
+/*
+------------------------------------
+AUDIO PLAYER
+------------------------------------
+*/
 
 .player {
-
   display: flex;
-
   align-items: center;
-
   gap: 14px;
 
   background: #101013;
@@ -166,19 +138,14 @@ h1 {
   border-radius: 16px;
 
   padding: 16px;
-
   margin: 22px 0;
 }
 
-
 .play {
-
   width: 50px;
-
   height: 50px;
 
   border: 0;
-
   border-radius: 50%;
 
   font-size: 20px;
@@ -186,45 +153,35 @@ h1 {
   cursor: pointer;
 }
 
-
 .player-text {
-
   flex: 1;
 }
 
-
 .small {
-
   color: #888;
-
   font-size: 13px;
-
   margin-top: 3px;
 }
 
-
 .player audio {
-
   display: none;
 }
 
 
-/* ATTEMPTS */
+/*
+------------------------------------
+ATTEMPTS
+------------------------------------
+*/
 
 .attempts {
-
   display: flex;
-
   gap: 8px;
-
   margin: 18px 0;
 }
 
-
 .dot {
-
   width: 12px;
-
   height: 12px;
 
   border-radius: 50%;
@@ -232,17 +189,23 @@ h1 {
   background: #3a3a40;
 }
 
-
 .dot.used {
-
   background: #f5f5f7;
 }
 
 
-/* INPUT */
+/*
+------------------------------------
+INPUT
+------------------------------------
+*/
+
+.guess-container {
+  position: relative;
+  width: 100%;
+}
 
 input {
-
   width: 100%;
 
   background: #101013;
@@ -260,17 +223,149 @@ input {
   outline: none;
 }
 
+input::placeholder {
+  color: #777780;
+}
 
 input:focus {
-
   border-color: #777;
 }
 
 
-/* GUESS BUTTON */
+/*
+------------------------------------
+MOVIE AUTOCOMPLETE DROPDOWN
+------------------------------------
+*/
+
+#movieAutocomplete {
+  position: absolute;
+
+  left: 0;
+  right: 0;
+
+  top: calc(100% + 6px);
+
+  z-index: 1000;
+
+  display: none;
+
+  max-height: 280px;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  background: #17171b !important;
+
+  border: 1px solid #38383f;
+
+  border-radius: 12px;
+
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+
+/*
+------------------------------------
+MOVIE SUGGESTION
+------------------------------------
+*/
+
+#movieAutocomplete div {
+  display: block;
+
+  width: 100%;
+
+  padding: 13px 15px;
+
+  background: #17171b !important;
+
+  color: #f5f5f7 !important;
+
+  font-size: 16px;
+
+  line-height: 1.3;
+
+  cursor: pointer;
+
+  border: 0;
+
+  transition: background 0.12s ease;
+}
+
+
+/*
+------------------------------------
+SUGGESTION HOVER
+------------------------------------
+*/
+
+#movieAutocomplete div:hover {
+  background: #29292f !important;
+}
+
+
+/*
+------------------------------------
+FIRST SUGGESTION
+------------------------------------
+*/
+
+#movieAutocomplete div:first-child {
+  border-radius: 11px 11px 0 0;
+}
+
+
+/*
+------------------------------------
+LAST SUGGESTION
+------------------------------------
+*/
+
+#movieAutocomplete div:last-child {
+  border-radius: 0 0 11px 11px;
+}
+
+
+/*
+------------------------------------
+SCROLLBAR
+------------------------------------
+*/
+
+#movieAutocomplete::-webkit-scrollbar {
+  width: 6px;
+}
+
+#movieAutocomplete::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#movieAutocomplete::-webkit-scrollbar-thumb {
+  background: #3a3a40;
+
+  border-radius: 10px;
+}
+
+
+/*
+Firefox scrollbar
+*/
+
+#movieAutocomplete {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3a40 transparent;
+}
+
+
+/*
+------------------------------------
+GUESS BUTTON
+------------------------------------
+*/
 
 .guess {
-
   width: 100%;
 
   margin-top: 10px;
@@ -286,19 +381,20 @@ input:focus {
   cursor: pointer;
 }
 
-
 .guess:disabled {
-
   opacity: 0.4;
 
   cursor: not-allowed;
 }
 
 
-/* CLUES */
+/*
+------------------------------------
+CLUES
+------------------------------------
+*/
 
 .clues {
-
   margin-top: 20px;
 
   display: grid;
@@ -306,9 +402,7 @@ input:focus {
   gap: 8px;
 }
 
-
 .clue {
-
   padding: 12px 14px;
 
   background: #202026;
@@ -319,10 +413,13 @@ input:focus {
 }
 
 
-/* RESULT */
+/*
+------------------------------------
+RESULT
+------------------------------------
+*/
 
 #message {
-
   margin-top: 18px;
 
   font-weight: 700;
@@ -330,82 +427,69 @@ input:focus {
   font-size: 16px;
 }
 
-
 .success {
-
   color: #72e58b;
 }
 
-
 .fail {
-
   color: #ff7d7d;
 }
 
 
-/* HOW TO */
+/*
+------------------------------------
+HOW TO
+------------------------------------
+*/
 
 .how {
-
   padding: 28px 4px;
 
   color: #aaa;
 }
 
-
 .how h2 {
-
   color: #fff;
 }
 
 
-/* MOBILE */
-
-@media (max-width: 520px) {
-
-  .mode-tabs {
-
-    grid-template-columns: 1fr;
-  }
-
-  .app {
-
-    padding-top: 24px;
-  }
-
-  .hero {
-
-    padding: 20px;
-  }
-
-  h1 {
-
-    font-size: 27px;
-  }
-
-}
+/*
+------------------------------------
+SHARE BUTTON
+------------------------------------
+*/
 
 .share-btn {
   width: 100%;
+
   min-height: 54px;
 
   margin-top: 16px;
+
   padding: 14px 20px;
 
   display: flex;
+
   align-items: center;
+
   justify-content: center;
+
   gap: 10px;
 
   border: 1px solid #d8d8dc;
+
   border-radius: 12px;
 
   background: #f5f5f7;
+
   color: #111;
 
   font-family: inherit;
+
   font-size: 16px;
+
   font-weight: 700;
+
   letter-spacing: 0.3px;
 
   cursor: pointer;
@@ -419,17 +503,54 @@ input:focus {
 .whatsapp-icon {
   width: 21px;
   height: 21px;
+
   fill: currentColor;
+
   flex-shrink: 0;
 }
 
 .share-btn:hover {
   background: #ffffff;
+
   border-color: #ffffff;
+
   transform: translateY(-1px);
 }
 
 .share-btn:active {
   background: #e9e9ec;
+
   transform: translateY(0);
+}
+
+
+/*
+------------------------------------
+MOBILE
+------------------------------------
+*/
+
+@media (max-width: 520px) {
+
+  .mode-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .app {
+    padding-top: 24px;
+  }
+
+  .hero {
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 27px;
+  }
+
+  #movieAutocomplete div {
+    padding: 12px 14px;
+
+    font-size: 15px;
+  }
 }

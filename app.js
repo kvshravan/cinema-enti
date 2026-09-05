@@ -1,16 +1,17 @@
 const COOKIE_NAME = "cinema_enti_state";
 
 let games = [];
+let movies = [];
 
 let currentDate = new Intl.DateTimeFormat("en-CA", {
   timeZone: "Asia/Kolkata"
 }).format(new Date());
 
 let mode = "easy";
-
 let attempts = 0;
-
 let current = null;
+
+let selectedMovie = null;
 
 
 /*
@@ -91,7 +92,6 @@ function loadState() {
     return JSON.parse(value);
 
   } catch (error) {
-
     console.error(
       "Could not read cookie",
       error
@@ -113,18 +113,14 @@ function saveState(state) {
 
 /*
 ------------------------------------
-GUESS NORMALIZATION
+MOVIE NORMALIZATION
 ------------------------------------
 */
 
-function normalize(text) {
+function normalizeMovie(text) {
   return text
     .toLowerCase()
     .normalize("NFKC")
-    .replace(
-      /[“”"'`.,!?;:()[\]{}\-_/\\]/g,
-      " "
-    )
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -132,42 +128,62 @@ function normalize(text) {
 
 /*
 ------------------------------------
-FUZZY MATCHING
+LEVENSHTEIN DISTANCE
 ------------------------------------
-*/
 
-/*
-Calculate the Levenshtein distance between
-two strings.
+Used only for autocomplete ranking.
 
-Example:
-
-jalsa
-dalsa
-
-Distance = 1
+It does NOT affect whether an answer
+is considered correct.
+------------------------------------
 */
 
 function levenshteinDistance(a, b) {
 
-  const matrix = Array.from(
-    { length: b.length + 1 },
-    () => Array(a.length + 1).fill(0)
-  );
+  const matrix =
+    Array.from(
+      { length: b.length + 1 },
+      () =>
+        Array(
+          a.length + 1
+        ).fill(0)
+    );
 
-  for (let i = 0; i <= b.length; i++) {
+
+  for (
+    let i = 0;
+    i <= b.length;
+    i++
+  ) {
     matrix[i][0] = i;
   }
 
-  for (let j = 0; j <= a.length; j++) {
+
+  for (
+    let j = 0;
+    j <= a.length;
+    j++
+  ) {
     matrix[0][j] = j;
   }
 
-  for (let i = 1; i <= b.length; i++) {
 
-    for (let j = 1; j <= a.length; j++) {
+  for (
+    let i = 1;
+    i <= b.length;
+    i++
+  ) {
 
-      if (b[i - 1] === a[j - 1]) {
+    for (
+      let j = 1;
+      j <= a.length;
+      j++
+    ) {
+
+      if (
+        b[i - 1] ===
+        a[j - 1]
+      ) {
 
         matrix[i][j] =
           matrix[i - 1][j - 1];
@@ -176,178 +192,622 @@ function levenshteinDistance(a, b) {
 
         matrix[i][j] =
           Math.min(
+
             matrix[i - 1][j] + 1,
+
             matrix[i][j - 1] + 1,
+
             matrix[i - 1][j - 1] + 1
           );
       }
     }
   }
 
+
   return matrix[b.length][a.length];
 }
 
 
 /*
-Decide how many spelling mistakes are
-allowed for a single word.
+------------------------------------
+MOVIE SEARCH SCORE
+------------------------------------
 
-Examples:
+Higher score = better suggestion.
 
-jalsa
-dalsa
+Priority:
 
-=> 1 typo allowed
-
-raghava
-ragahava
-
-=> 1 typo allowed
-
-Very long words can tolerate 2 typos.
+1. Exact match
+2. Starts with query
+3. Contains query
+4. Fuzzy word match
+5. Fuzzy title-prefix match
+------------------------------------
 */
 
-function wordDistanceAllowed(word) {
+function getMovieSearchScore(
+  movie,
+  query
+) {
 
-  const length = word.length;
+  const title =
+    normalizeMovie(movie);
 
-  // Don't fuzzy-match very short words.
-  if (length <= 3) {
-    return 0;
+  const search =
+    normalizeMovie(query);
+
+
+  /*
+  Exact match
+  */
+
+  if (title === search) {
+    return 1000;
   }
 
-  // Normal movie-title words.
-  if (length <= 7) {
-    return 1;
+
+  /*
+  Title starts with query
+  */
+
+  if (title.startsWith(search)) {
+    return 900;
   }
 
-  // Longer words.
-  return 2;
-}
 
+  /*
+  Query appears anywhere
+  */
 
-/*
-Compare two individual words.
-*/
-
-function wordsMatch(guessWord, answerWord) {
-
-  if (guessWord === answerWord) {
-    return true;
+  if (title.includes(search)) {
+    return 800;
   }
 
-  const distance =
-    levenshteinDistance(
-      guessWord,
-      answerWord
+
+  /*
+  --------------------------------
+  FUZZY MATCHING
+  --------------------------------
+
+  Compare the search text against
+  individual words in the movie title.
+
+  Example:
+
+  "attarintiki"
+
+  vs
+
+  "atharintiki"
+
+  Distance = 1
+  */
+
+  const words =
+    title.split(/\s+/);
+
+  let bestWordDistance =
+    Infinity;
+
+
+  for (const word of words) {
+
+    const distance =
+      levenshteinDistance(
+        search,
+        word
+      );
+
+    bestWordDistance =
+      Math.min(
+        bestWordDistance,
+        distance
+      );
+  }
+
+
+  /*
+  --------------------------------
+  TITLE PREFIX MATCH
+  --------------------------------
+
+  Useful for titles such as:
+
+  "Atharintiki Daaredi"
+
+  when user types:
+
+  "attarintiki"
+  */
+
+  const titlePrefix =
+    title.substring(
+      0,
+      Math.min(
+        title.length,
+        search.length + 3
+      )
     );
 
-  const allowed =
-    wordDistanceAllowed(answerWord);
 
-  return distance <= allowed;
+  const prefixDistance =
+    levenshteinDistance(
+      search,
+      titlePrefix
+    );
+
+
+  bestWordDistance =
+    Math.min(
+      bestWordDistance,
+      prefixDistance
+    );
+
+
+  /*
+  --------------------------------
+  DISTANCE THRESHOLDS
+  --------------------------------
+  */
+
+  if (bestWordDistance <= 2) {
+
+    return (
+      700 -
+      bestWordDistance * 20
+    );
+  }
+
+
+  if (bestWordDistance <= 3) {
+
+    return (
+      600 -
+      bestWordDistance * 20
+    );
+  }
+
+
+  if (bestWordDistance <= 4) {
+
+    return (
+      500 -
+      bestWordDistance * 20
+    );
+  }
+
+
+  return 0;
 }
 
 
 /*
-Compare the complete movie title.
-
-For multi-word titles we compare each word
-individually.
-
-Example:
-
-Aravinda Sametha Veera Raghava
-
-Aravinda Sametha Veera Ragahava
-
-=> TRUE
-
-But:
-
-Aravinda Sametha
-
-=> FALSE
-
-And:
-
-Aravinda Veera Sametha Raghava
-
-=> FALSE
+------------------------------------
+SEARCH MOVIES
+------------------------------------
 */
 
-function isCorrectAnswer(guess, answers) {
+function searchMovies(query) {
 
-  const normalizedGuess =
-    normalize(guess);
+  const search =
+    normalizeMovie(query);
 
-  if (!normalizedGuess) {
-    return false;
+
+  /*
+  Don't search for extremely short
+  queries because fuzzy matching can
+  produce noisy results.
+  */
+
+  if (
+    !search ||
+    search.length < 2
+  ) {
+    return [];
   }
 
-  const guessWords =
-    normalizedGuess.split(" ");
 
-  for (const answer of answers) {
+  return movies
 
-    const normalizedAnswer =
-      normalize(answer);
+    .map(movie => ({
 
-    /*
-    Exact match.
-    */
+      movie,
 
-    if (
-      normalizedGuess ===
-      normalizedAnswer
-    ) {
-      return true;
-    }
+      score:
+        getMovieSearchScore(
+          movie,
+          search
+        )
 
-    const answerWords =
-      normalizedAnswer.split(" ");
+    }))
 
-    /*
-    Number of words must match.
+    .filter(result =>
+      result.score > 0
+    )
 
-    This prevents incomplete titles from
-    being accepted.
-    */
+    .sort((a, b) => {
 
-    if (
-      guessWords.length !==
-      answerWords.length
-    ) {
-      continue;
-    }
-
-    let allWordsMatch = true;
-
-    for (
-      let i = 0;
-      i < answerWords.length;
-      i++
-    ) {
+      /*
+      Higher score first.
+      */
 
       if (
-        !wordsMatch(
-          guessWords[i],
-          answerWords[i]
-        )
+        b.score !== a.score
       ) {
 
-        allWordsMatch = false;
-
-        break;
+        return (
+          b.score -
+          a.score
+        );
       }
-    }
 
-    if (allWordsMatch) {
-      return true;
-    }
+
+      /*
+      Alphabetical tie-breaker.
+      */
+
+      return a.movie.localeCompare(
+        b.movie
+      );
+    })
+
+    .slice(0, 8)
+
+    .map(result =>
+      result.movie
+    );
+}
+
+
+/*
+------------------------------------
+MOVIE AUTOCOMPLETE
+------------------------------------
+*/
+
+function setupMovieAutocomplete() {
+
+  const input =
+    $("guess");
+
+
+  if (!input) {
+
+    console.error(
+      "Guess input not found"
+    );
+
+    return;
   }
 
-  return false;
+
+  /*
+  ------------------------------------
+  CREATE AUTOCOMPLETE CONTAINER
+  ------------------------------------
+  */
+
+  let dropdown =
+    $("movieAutocomplete");
+
+
+  if (!dropdown) {
+
+    dropdown =
+      document.createElement(
+        "div"
+      );
+
+    dropdown.id =
+      "movieAutocomplete";
+
+
+    /*
+    CSS handles positioning,
+    colors and appearance.
+    */
+
+    const parent =
+      input.parentElement;
+
+
+    if (!parent) {
+
+      console.error(
+        "Guess input parent not found"
+      );
+
+      return;
+    }
+
+
+    /*
+    Make sure the parent can contain
+    an absolutely positioned dropdown.
+    */
+
+    if (
+      getComputedStyle(parent).position ===
+      "static"
+    ) {
+
+      parent.style.position =
+        "relative";
+    }
+
+
+    parent.appendChild(
+      dropdown
+    );
+  }
+
+
+  /*
+  Prevent browser autocomplete
+  from competing with our dropdown.
+  */
+
+  input.setAttribute(
+    "autocomplete",
+    "off"
+  );
+
+
+  /*
+  ------------------------------------
+  INPUT EVENT
+  ------------------------------------
+  */
+
+  input.addEventListener(
+    "input",
+    () => {
+
+      /*
+      Any typing invalidates the previous
+      dropdown selection.
+
+      The user must select a new movie.
+      */
+
+      selectedMovie = null;
+
+
+      const query =
+        normalizeMovie(
+          input.value
+        );
+
+
+      if (!query) {
+
+        hideMovieAutocomplete();
+
+        return;
+      }
+
+
+      const results =
+        searchMovies(query);
+
+
+      renderMovieSuggestions(
+        results
+      );
+    }
+  );
+
+
+  /*
+  ------------------------------------
+  FOCUS
+  ------------------------------------
+  */
+
+  input.addEventListener(
+    "focus",
+    () => {
+
+      const query =
+        normalizeMovie(
+          input.value
+        );
+
+
+      if (!query) {
+        return;
+      }
+
+
+      const results =
+        searchMovies(query);
+
+
+      renderMovieSuggestions(
+        results
+      );
+    }
+  );
+
+
+  /*
+  ------------------------------------
+  BLUR
+  ------------------------------------
+  */
+
+  input.addEventListener(
+    "blur",
+    () => {
+
+      /*
+      Small delay allows a mousedown
+      on a suggestion to register
+      before the dropdown disappears.
+      */
+
+      setTimeout(() => {
+
+        hideMovieAutocomplete();
+
+      }, 150);
+    }
+  );
+}
+
+
+/*
+------------------------------------
+RENDER MOVIE SUGGESTIONS
+------------------------------------
+*/
+
+function renderMovieSuggestions(
+  results
+) {
+
+  const dropdown =
+    $("movieAutocomplete");
+
+
+  if (!dropdown) {
+    return;
+  }
+
+
+  dropdown.innerHTML = "";
+
+
+  if (!results.length) {
+
+    hideMovieAutocomplete();
+
+    return;
+  }
+
+
+  results.forEach(movie => {
+
+    const item =
+      document.createElement(
+        "div"
+      );
+
+
+    /*
+    Exact canonical title from
+    movies.json.
+    */
+
+    item.textContent =
+      movie;
+
+
+    /*
+    --------------------------------
+    SELECT MOVIE
+    --------------------------------
+    */
+
+    item.addEventListener(
+      "mousedown",
+      event => {
+
+        /*
+        Prevent input blur from happening
+        before the selection is registered.
+        */
+
+        event.preventDefault();
+
+        selectMovie(movie);
+      }
+    );
+
+
+    dropdown.appendChild(
+      item
+    );
+  });
+
+
+  dropdown.style.display =
+    "block";
+}
+
+
+/*
+------------------------------------
+SELECT MOVIE
+------------------------------------
+*/
+
+function selectMovie(movie) {
+
+  const input =
+    $("guess");
+
+
+  if (!input) {
+    return;
+  }
+
+
+  /*
+  Put the exact canonical movie title
+  from movies.json into the input.
+
+  Example:
+
+  User types:
+  "attarintiki"
+
+  Selected value becomes:
+  "Atharintiki Daaredi"
+  */
+
+  input.value =
+    movie;
+
+
+  /*
+  Store the exact canonical title.
+  */
+
+  selectedMovie =
+    movie;
+
+
+  hideMovieAutocomplete();
+
+
+  /*
+  Keep focus on input.
+  */
+
+  input.focus();
+}
+
+
+/*
+------------------------------------
+HIDE AUTOCOMPLETE
+------------------------------------
+*/
+
+function hideMovieAutocomplete() {
+
+  const dropdown =
+    $("movieAutocomplete");
+
+
+  if (!dropdown) {
+    return;
+  }
+
+
+  dropdown.style.display =
+    "none";
 }
 
 
@@ -358,13 +818,18 @@ DAILY GAME NUMBER
 */
 
 function getGameNumber() {
+
   const start =
-    new Date("2026-09-05T00:00:00+05:30");
+    new Date(
+      "2026-09-05T00:00:00+05:30"
+    );
+
 
   const today =
     new Date(
       `${currentDate}T00:00:00+05:30`
     );
+
 
   const diff =
     Math.floor(
@@ -372,10 +837,18 @@ function getGameNumber() {
       (1000 * 60 * 60 * 24)
     );
 
+
   return String(
-    Math.max(1, diff + 1)
-  ).padStart(3, "0");
+    Math.max(
+      1,
+      diff + 1
+    )
+  ).padStart(
+    3,
+    "0"
+  );
 }
+
 
 /*
 ------------------------------------
@@ -388,8 +861,10 @@ function getShareText() {
   const state =
     loadState();
 
+
   const todayState =
     state[currentDate] || {};
+
 
   const modes = [
 
@@ -413,26 +888,39 @@ function getShareText() {
 
   ];
 
+
   let solved = 0;
 
+
   const lines =
-    modes.map(gameMode => {
+    modes.map(
+      gameMode => {
 
-      const result =
-        todayState[gameMode.key];
+        const result =
+          todayState[
+            gameMode.key
+          ];
 
-      if (
-        result &&
-        result.solved
-      ) {
 
-        solved++;
+        if (
+          result &&
+          result.solved
+        ) {
 
-        return `${gameMode.emoji} ${gameMode.name} — ${result.attempts}️⃣`;
+          solved++;
+
+
+          return (
+            `${gameMode.emoji} ${gameMode.name} — ${result.attempts}️⃣`
+          );
+        }
+
+
+        return (
+          `${gameMode.emoji} ${gameMode.name} — ❌`
+        );
       }
-
-      return `${gameMode.emoji} ${gameMode.name} — ❌`;
-    });
+    );
 
 
   return `🎬 Cinema Enti? #${getGameNumber()}
@@ -458,18 +946,26 @@ function updateShareSection() {
   const section =
     $("shareSection");
 
+
   const preview =
     $("sharePreview");
 
-  if (!section || !preview) {
+
+  if (
+    !section ||
+    !preview
+  ) {
     return;
   }
+
 
   const state =
     loadState();
 
+
   const todayState =
     state[currentDate] || {};
+
 
   const allCompleted =
     !!(
@@ -483,6 +979,7 @@ function updateShareSection() {
 
     preview.textContent =
       getShareText();
+
 
     section.style.display =
       "block";
@@ -505,37 +1002,111 @@ async function init() {
 
   try {
 
-    games =
-      await fetch("data/games.json")
-        .then(response => {
+    /*
+    Load games.json and movies.json
+    at the same time.
+    */
 
-          if (!response.ok) {
+    [games, movies] =
+      await Promise.all([
 
-            throw new Error(
-              "games.json could not be loaded"
-            );
-          }
+        fetch(
+          "data/games.json"
+        )
+          .then(response => {
 
-          return response.json();
-        });
+            if (!response.ok) {
 
+              throw new Error(
+                "games.json could not be loaded"
+              );
+            }
+
+            return response.json();
+          }),
+
+
+        fetch(
+          "data/movies.json"
+        )
+          .then(response => {
+
+            if (!response.ok) {
+
+              throw new Error(
+                "movies.json could not be loaded"
+              );
+            }
+
+            return response.json();
+          })
+
+      ]);
+
+
+    /*
+    --------------------------------
+    VALIDATE MOVIE DATABASE
+    --------------------------------
+    */
+
+    if (
+      !Array.isArray(movies)
+    ) {
+
+      throw new Error(
+        "movies.json must contain an array"
+      );
+    }
+
+
+    /*
+    --------------------------------
+    SETUP AUTOCOMPLETE
+    --------------------------------
+    */
+
+    setupMovieAutocomplete();
+
+
+    /*
+    --------------------------------
+    DISPLAY DATE
+    --------------------------------
+    */
 
     $("date").textContent =
       currentDate;
 
+
+    /*
+    --------------------------------
+    LOAD TODAY'S GAME
+    --------------------------------
+    */
+
     loadGame();
+
+
+    /*
+    --------------------------------
+    UPDATE SHARE SECTION
+    --------------------------------
+    */
 
     updateShareSection();
 
   } catch (error) {
 
     console.error(
-      "Could not load games",
+      "Could not load game data",
       error
     );
 
+
     $("message").className =
       "fail";
+
 
     $("message").textContent =
       "Game load avvaledu ra 😭";
@@ -554,17 +1125,23 @@ function loadGame() {
   const day =
     games.find(
       game =>
-        game.date === currentDate
+        game.date ===
+        currentDate
     ) || games[0];
 
 
-  if (!day || !day[mode]) {
+  if (
+    !day ||
+    !day[mode]
+  ) {
 
     $("message").className =
       "fail";
 
+
     $("message").textContent =
       "Ee roju game dorakaledu ra 😭";
+
 
     return;
   }
@@ -573,23 +1150,63 @@ function loadGame() {
   current =
     day[mode];
 
+
   attempts = 0;
 
+  selectedMovie = null;
+
+
+  /*
+  --------------------------------
+  UPDATE MODE DESCRIPTION
+  --------------------------------
+  */
 
   $("modeDesc").textContent =
     descriptions[mode];
 
 
+  /*
+  --------------------------------
+  RESET INPUT
+  --------------------------------
+  */
+
   $("guess").value = "";
+
+
+  hideMovieAutocomplete();
+
+
+  /*
+  --------------------------------
+  RESET MESSAGE
+  --------------------------------
+  */
 
   $("message").textContent = "";
 
   $("message").className = "";
 
-  $("guessBtn").disabled = false;
 
-  $("guess").disabled = false;
+  /*
+  --------------------------------
+  ENABLE INPUT / BUTTON
+  --------------------------------
+  */
 
+  $("guessBtn").disabled =
+    false;
+
+  $("guess").disabled =
+    false;
+
+
+  /*
+  --------------------------------
+  AUDIO
+  --------------------------------
+  */
 
   $("audio").src =
     current.audio;
@@ -603,14 +1220,21 @@ function loadGame() {
     "▶";
 
 
+  /*
+  --------------------------------
+  ATTEMPTS / CLUES
+  --------------------------------
+  */
+
   renderAttempts();
 
   renderClues();
 
 
   /*
-  Check whether this mode
-  was already completed.
+  --------------------------------
+  CHECK PREVIOUS STATE
+  --------------------------------
   */
 
   const state =
@@ -633,27 +1257,44 @@ function loadGame() {
     renderAttempts();
 
 
+    /*
+    --------------------------------
+    ALREADY SOLVED
+    --------------------------------
+    */
+
     if (result.solved) {
 
       $("message").className =
         "success";
+
 
       $("message").textContent =
         `Already kanipettav ra 😎 — ${current.movie}`;
 
     } else {
 
+      /*
+      --------------------------------
+      ALREADY FAILED
+      --------------------------------
+      */
+
       $("message").className =
         "fail";
+
 
       $("message").textContent =
         `Answer: ${current.movie}`;
     }
 
 
-    $("guessBtn").disabled = true;
+    $("guessBtn").disabled =
+      true;
 
-    $("guess").disabled = true;
+
+    $("guess").disabled =
+      true;
   }
 
 
@@ -671,13 +1312,16 @@ function renderAttempts() {
 
   $("attempts").innerHTML =
     Array.from(
-      { length: 6 },
+      {
+        length: 6
+      },
       (_, index) => {
 
         const used =
           index < attempts
             ? "used"
             : "";
+
 
         return `
           <span class="dot ${used}"></span>
@@ -698,7 +1342,13 @@ function renderClues() {
   const shown = [];
 
 
-  if (attempts >= 2) {
+  /*
+  Hero after 2 attempts.
+  */
+
+  if (
+    attempts >= 2
+  ) {
 
     shown.push(
       `👤 Hero: ${current.clues.actor}`
@@ -706,7 +1356,13 @@ function renderClues() {
   }
 
 
-  if (attempts >= 3) {
+  /*
+  Year after 3 attempts.
+  */
+
+  if (
+    attempts >= 3
+  ) {
 
     shown.push(
       `📅 Year: ${current.clues.year}`
@@ -714,7 +1370,13 @@ function renderClues() {
   }
 
 
-  if (attempts >= 4) {
+  /*
+  Director after 4 attempts.
+  */
+
+  if (
+    attempts >= 4
+  ) {
 
     shown.push(
       `🎬 Director: ${current.clues.director}`
@@ -745,46 +1407,87 @@ function guess() {
   }
 
 
-  if (attempts >= 6) {
+  if (
+    attempts >= 6
+  ) {
     return;
   }
 
 
-  const value =
-    normalize(
-      $("guess").value
-    );
+  /*
+  --------------------------------
+  REQUIRE DROPDOWN SELECTION
+  --------------------------------
+
+  Arbitrary typed text is not accepted.
+  */
+
+  if (!selectedMovie) {
+
+    $("message").className =
+      "fail";
 
 
-  if (!value) {
+    $("message").textContent =
+      "Dropdown nunchi movie select cheyyi ra 😭";
+
+
     return;
   }
 
+
+  /*
+  Increment attempt.
+  */
 
   attempts++;
+
 
   renderAttempts();
 
 
   /*
-  FUZZY WORD-AWARE MATCHING
+  --------------------------------
+  EXACT ANSWER VALIDATION
+  --------------------------------
+
+  selectedMovie comes directly from
+  movies.json.
+
+  current.movie comes from games.json.
+
+  Therefore both must contain the
+  exact same canonical movie title.
+
+  Example:
+
+  movies.json:
+  "Atharintiki Daaredi"
+
+  games.json:
+  "Atharintiki Daaredi"
+
+  => CORRECT
+
+  Fuzzy matching is NOT used here.
   */
 
   const correct =
-    isCorrectAnswer(
-      value,
-      current.answers
-    );
+    selectedMovie ===
+    current.movie;
 
 
   /*
+  ------------------------------------
   CORRECT
+  ------------------------------------
   */
 
   if (correct) {
 
     $("message").className =
       "success";
+
 
     $("message").textContent =
       `🔥 Super ra! ${current.movie} — ${attempts}/6`;
@@ -795,6 +1498,7 @@ function guess() {
 
 
     if (!state[currentDate]) {
+
       state[currentDate] = {};
     }
 
@@ -812,25 +1516,37 @@ function guess() {
     saveState(state);
 
 
-    $("guessBtn").disabled = true;
+    $("guessBtn").disabled =
+      true;
 
-    $("guess").disabled = true;
+
+    $("guess").disabled =
+      true;
+
+
+    hideMovieAutocomplete();
 
 
     updateShareSection();
+
 
     return;
   }
 
 
   /*
+  ------------------------------------
   FAILED ALL ATTEMPTS
+  ------------------------------------
   */
 
-  if (attempts >= 6) {
+  if (
+    attempts >= 6
+  ) {
 
     $("message").className =
       "fail";
+
 
     $("message").textContent =
       `Ayyo 😂 answer ${current.movie}`;
@@ -841,6 +1557,7 @@ function guess() {
 
 
     if (!state[currentDate]) {
+
       state[currentDate] = {};
     }
 
@@ -858,26 +1575,51 @@ function guess() {
     saveState(state);
 
 
-    $("guessBtn").disabled = true;
+    $("guessBtn").disabled =
+      true;
 
-    $("guess").disabled = true;
+
+    $("guess").disabled =
+      true;
+
+
+    hideMovieAutocomplete();
 
 
     updateShareSection();
+
 
     return;
   }
 
 
   /*
+  ------------------------------------
   WRONG GUESS
+  ------------------------------------
   */
 
   $("message").className =
     "fail";
 
+
   $("message").textContent =
     "Adi kaadu ra 😭 malli vinu...";
+
+
+  /*
+  Clear previous selection.
+
+  User has to choose another movie
+  from the dropdown.
+  */
+
+  selectedMovie = null;
+
+  $("guess").value = "";
+
+
+  hideMovieAutocomplete();
 
 
   renderClues();
@@ -929,7 +1671,8 @@ $("playBtn").onclick = () => {
 
   if (audio.paused) {
 
-    audio.play()
+    audio
+      .play()
       .then(() => {
 
         $("playBtn").textContent =
@@ -947,6 +1690,7 @@ $("playBtn").onclick = () => {
   } else {
 
     audio.pause();
+
 
     $("playBtn").textContent =
       "▶";
@@ -995,7 +1739,12 @@ $("guess").addEventListener(
   "keydown",
   event => {
 
-    if (event.key === "Enter") {
+    if (
+      event.key === "Enter"
+    ) {
+
+      event.preventDefault();
+
       guess();
     }
   }
@@ -1014,76 +1763,82 @@ const shareBtn =
 
 if (shareBtn) {
 
-  shareBtn.onclick = async () => {
+  shareBtn.onclick =
+    async () => {
 
-    const shareText =
-      getShareText();
+      const shareText =
+        getShareText();
 
 
-    /*
-    Mobile / supported browsers
-    */
+      /*
+      --------------------------------
+      MOBILE / SUPPORTED BROWSERS
+      --------------------------------
+      */
 
-    if (navigator.share) {
+      if (
+        navigator.share
+      ) {
+
+        try {
+
+          await navigator.share({
+
+            title:
+              `Cinema Enti? #${getGameNumber()}`,
+
+            text:
+              shareText
+          });
+
+        } catch (error) {
+
+          /*
+          User cancelled sharing.
+          */
+
+          console.log(
+            "Share cancelled"
+          );
+        }
+
+
+        return;
+      }
+
+
+      /*
+      --------------------------------
+      DESKTOP FALLBACK
+      --------------------------------
+      */
 
       try {
 
-        await navigator.share({
+        await navigator.clipboard.writeText(
+          shareText
+        );
 
-          title:
-            `Cinema Enti? #${getGameNumber()}`,
 
-          text:
-            shareText
-        });
+        shareBtn.textContent =
+          "✅ COPIED!";
+
+
+        setTimeout(() => {
+
+          shareBtn.textContent =
+            "📤 SHARE RESULT";
+
+        }, 2000);
 
       } catch (error) {
 
-        /*
-        User cancelled sharing.
-        */
-
-        console.log(
-          "Share cancelled"
+        prompt(
+          "Copy your result:",
+          shareText
         );
       }
-
-      return;
-    }
-
-
-    /*
-    Desktop fallback:
-    copy result to clipboard.
-    */
-
-    try {
-
-      await navigator.clipboard.writeText(
-        shareText
-      );
-
-
-      shareBtn.textContent =
-        "✅ COPIED!";
-
-
-      setTimeout(() => {
-
-        shareBtn.textContent =
-          "📤 SHARE RESULT";
-
-      }, 2000);
-
-
-    } catch (error) {
-
-      prompt(
-        "Copy your result:",
-        shareText
-      );
-    }
-  };
+    };
 }
 
 

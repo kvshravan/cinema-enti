@@ -1,11 +1,9 @@
 [
   {
     "date": "2026-09-05",
+
     "easy": {
       "movie": "Khaleja",
-      "answers": [
-        "khaleja"
-      ],
       "audio": "audio/2026-09-05-easy.mp3",
       "clues": {
         "actor": "Mahesh Babu",
@@ -13,11 +11,9 @@
         "director": "Trivikram Srinivas"
       }
     },
+
     "hard": {
       "movie": "Jalsa",
-      "answers": [
-        "jalsa"
-      ],
       "audio": "audio/2026-09-05-hard.mp3",
       "clues": {
         "actor": "Pawan Kalyan",
@@ -25,11 +21,9 @@
         "director": "Trivikram Srinivas"
       }
     },
+
     "ultra_hard": {
       "movie": "Julayi",
-      "answers": [
-        "julayi"
-      ],
       "audio": "audio/2026-09-05-ultra-hard.mp3",
       "clues": {
         "actor": "Allu Arjun",
